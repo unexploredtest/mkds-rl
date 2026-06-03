@@ -1,6 +1,8 @@
 # Project related
 files/
 savestates/
+models/
+logs/
 
 # Python-generated files
 __pycache__/
