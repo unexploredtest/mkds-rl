@@ -3,6 +3,7 @@ files/
 savestates/
 models/
 logs/
+mariokartds_tensorboard/
 
 # Python-generated files
 __pycache__/

@@ -31,10 +31,11 @@ if __name__ == "__main__":
     log_dir = "./logs/"
     models_dir = "./models/"
     plots_dir = "./plots/"
+    tensorboard_log="./mariokartds_tensorboard/"
 
     env = make_vec_env(make_env, num_cpu, monitor_dir=log_dir)
 
-    model = PPO("CnnPolicy", env, verbose=1)
+    model = PPO("CnnPolicy", env, verbose=1, tensorboard_log=tensorboard_log)
 
     # Making checkpoints
     os.makedirs(models_dir, exist_ok=True)
