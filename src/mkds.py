@@ -7,6 +7,7 @@ import gymnasium as gym
 from gymnasium import spaces
 
 # One lap is about 1360 distance
+# A decent run finishes one lap in about 2300 frames
 
 # KEY_MAP = {
 #     'a': 0,
@@ -33,9 +34,10 @@ class Actions(enum.Enum):
     LEFT = 1
     RIGHT = 2
 
-class MarioKartEnv(gym.Env):
+class MarioKartDSEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 60}
     lap_distance = 1360
+    distance_timeout = 60
 
     def __init__(self, rom_path: str, savestates: list[str] = [], render_mode=None):
         self.observation_space = gym.spaces.Box(low=0, high=255, shape=(192, 256, 4), dtype=np.uint8)
@@ -61,7 +63,11 @@ class MarioKartEnv(gym.Env):
         self.nds = pynds.PyNDS(rom_path)
 
         self.current_action = Actions.NONE
+
+        # Distance related
         self.distance = None
+        self.max_distance = None
+        self.last_max_distance = 0
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
@@ -84,6 +90,8 @@ class MarioKartEnv(gym.Env):
 
         self.current_action = Actions.NONE
         self.distance = self.nds.memory.read_ram_i32(RAM_ADDRESSES["back_distance"])
+        self.max_distance = self.distance
+        self.last_max_distance = 0
 
         return observation, info
 
@@ -106,9 +114,16 @@ class MarioKartEnv(gym.Env):
         self.nds.tick()
 
         new_distance = self.nds.memory.read_ram_i32(RAM_ADDRESSES["back_distance"])
-        # print(new_distance)
-        
-        terminated = new_distance > self.lap_distance + 1
+
+        # Checking whether the agent has progressed through the truck or stuck
+        if(new_distance <= self.max_distance):
+            self.last_max_distance += 1
+        else:
+            self.max_distance = new_distance
+            self.last_max_distance = 0
+
+        # We terminate when the agent finishes the lap or when the agent hasn't progressed through the track
+        terminated = new_distance > self.lap_distance + 5 or self.last_max_distance > self.distance_timeout
         reward = self._get_reward(new_distance)
         observation = self._get_obs()
         info = self._get_info()
@@ -147,12 +162,22 @@ class MarioKartEnv(gym.Env):
         merged = np.vstack((top_frame, bottom_frame))
         return merged
 
+gym.envs.register(
+    id="MarioKartDS-v0",
+    entry_point=MarioKartDSEnv,
+    max_episode_steps=3000
+)
 
 if __name__ == "__main__":
-    env = MarioKartEnv("files/rom.nds", "savestates/time_trail_begining.noo", render_mode="human")
+    # env = MarioKartDSEnv("files/rom.nds", "savestates/time_trail_begining.noo", render_mode="human")
+    env = gym.make("MarioKartDS-v0", rom_path="files/rom.nds", savestates="savestates/time_trail_begining.noo", render_mode="human")
     obs, info = env.reset()
 
     done = False
+    i = 0
     while(not done):
         obs, reward, terminated, truncated, info = env.step(env.action_space.sample())
-        print(reward)
+        i += 1
+        done = terminated | truncated
+        # print(i)
+        # print(reward)

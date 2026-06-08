@@ -7,7 +7,8 @@ from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.callbacks import CheckpointCallback, EveryNTimesteps
 from stable_baselines3.common import results_plotter
 
-from mkds import MarioKartEnv
+import mkds
+
 
 def find_state_files(folder_path):
     state_files = []
@@ -20,15 +21,13 @@ def find_state_files(folder_path):
 def make_env():
     rom_path = "files/rom.nds"
     savestates = find_state_files("savestates/")
-    env = MarioKartEnv(rom_path, savestates)
-    env = gym.wrappers.TimeLimit(env, 1000)
-    env.reset()
+    env = gym.make("MarioKartDS-v0", rom_path=rom_path, savestates=savestates)
     return env
 
 if __name__ == "__main__":
     num_cpu = 4
-    training_steps = 10_000_000
-    saving_freq = 50_000
+    training_steps = 20_000_000
+    saving_freq = 200_000
     log_dir = "./logs/"
     models_dir = "./models/"
     plots_dir = "./plots/"
