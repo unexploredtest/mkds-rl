@@ -5,14 +5,12 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "matplotlib>=3.11.1",
+    "pandas>=3.0.3",
     "pynds>=0.0.3",
-    "stable-baselines3>=2.8.0",
+    "sbx-rl>=0.27.0",
     "tensorboard>=2.20.0",
-    "torch>=2.12.0",
 ]
-
-[tool.uv.sources]
-torch = { index = "pytorch" }
 
 [[tool.uv.index]]
 name = "pytorch"
