@@ -17,3 +17,8 @@ torch = { index = "pytorch" }
 [[tool.uv.index]]
 name = "pytorch"
 url = "https://download.pytorch.org/whl/cpu"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.16.1",
+]
