@@ -1,28 +1,28 @@
 import os
 
-import matplotlib.pyplot as plt
 import gymnasium as gym
+import matplotlib.pyplot as plt
 from stable_baselines3 import PPO
-from stable_baselines3.common.env_util import make_vec_env
-from stable_baselines3.common.callbacks import CheckpointCallback, EveryNTimesteps
 from stable_baselines3.common import results_plotter
-
-import mkds
+from stable_baselines3.common.callbacks import CheckpointCallback, EveryNTimesteps
+from stable_baselines3.common.env_util import make_vec_env
 
 
 def find_state_files(folder_path):
     state_files = []
     for root, dirs, files in os.walk(folder_path):
         for file in files:
-            if file.endswith('.noo'):
+            if file.endswith(".noo"):
                 state_files.append(os.path.join(root, file))
     return state_files
+
 
 def make_env():
     rom_path = "files/rom.nds"
     savestates = find_state_files("savestates/")
     env = gym.make("MarioKartDS-v0", rom_path=rom_path, savestates=savestates)
     return env
+
 
 if __name__ == "__main__":
     num_cpu = 4
@@ -31,7 +31,7 @@ if __name__ == "__main__":
     log_dir = "./logs/"
     models_dir = "./models/"
     plots_dir = "./plots/"
-    tensorboard_log="./mariokartds_tensorboard/"
+    tensorboard_log = "./mariokartds_tensorboard/"
 
     env = make_vec_env(make_env, num_cpu, monitor_dir=log_dir)
 

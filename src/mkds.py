@@ -1,9 +1,10 @@
-import random
 import enum
+import random
+from typing import ClassVar
 
-import pynds
-import numpy as np
 import gymnasium as gym
+import numpy as np
+import pynds
 from gymnasium import spaces
 
 # One lap is about 1360 distance
@@ -24,23 +25,27 @@ from gymnasium import spaces
 #     'y': 11
 # }
 
-RAM_ADDRESSES = {
-    "back_distance": 3513708,
-    "front_distance": 3497980
-}
+RAM_ADDRESSES = {"back_distance": 3513708, "front_distance": 3497980}
+
 
 class Actions(enum.Enum):
     NONE = 0
     LEFT = 1
     RIGHT = 2
 
+
 class MarioKartDSEnv(gym.Env):
-    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 60}
+    metadata: ClassVar = {
+        "render_modes": ["human", "rgb_array"],
+        "render_fps": 60,
+    }
     lap_distance = 1360
     distance_timeout = 60
 
-    def __init__(self, rom_path: str, savestates: list[str] = [], render_mode=None):
-        self.observation_space = gym.spaces.Box(low=0, high=255, shape=(192, 256, 4), dtype=np.uint8)
+    def __init__(self, rom_path: str, savestates: list[str] | str, render_mode=None):
+        self.observation_space = gym.spaces.Box(
+            low=0, high=255, shape=(192, 256, 4), dtype=np.uint8
+        )
         self.action_space = spaces.Discrete(3)
 
         """
@@ -55,8 +60,9 @@ class MarioKartDSEnv(gym.Env):
         self.window_opened = False
         self.clock = None
 
-        if(isinstance(savestates, str)):
+        if isinstance(savestates, str):
             savestates = [savestates]
+
         assert isinstance(savestates, list)
         self.savestates = savestates
 
@@ -77,12 +83,12 @@ class MarioKartDSEnv(gym.Env):
 
         # progress
         self.nds.tick()
-        
+
         observation = self._get_obs()
         info = self._get_info()
 
         if self.render_mode == "human":
-            if(not self.window_opened):
+            if not self.window_opened:
                 self.nds.open_window()
                 self.window_opened = True
 
@@ -95,19 +101,19 @@ class MarioKartDSEnv(gym.Env):
 
         return observation, info
 
-    def step(self, action):        
+    def step(self, action):
         new_action = Actions(action)
 
-        self.nds.button.press_key('a')
-        if(new_action == Actions.NONE):
-            self.nds.button.release_key('left')
-            self.nds.button.release_key('right')
-        elif(new_action == Actions.LEFT):
-            self.nds.button.press_key('left')
-            self.nds.button.release_key('right')
-        elif(new_action == Actions.RIGHT):
-            self.nds.button.release_key('left')
-            self.nds.button.press_key('right')
+        self.nds.button.press_key("a")
+        if new_action == Actions.NONE:
+            self.nds.button.release_key("left")
+            self.nds.button.release_key("right")
+        elif new_action == Actions.LEFT:
+            self.nds.button.press_key("left")
+            self.nds.button.release_key("right")
+        elif new_action == Actions.RIGHT:
+            self.nds.button.release_key("left")
+            self.nds.button.press_key("right")
         else:
             raise ValueError(f"{action} is not a valid action!")
 
@@ -116,14 +122,17 @@ class MarioKartDSEnv(gym.Env):
         new_distance = self.nds.memory.read_ram_i32(RAM_ADDRESSES["back_distance"])
 
         # Checking whether the agent has progressed through the truck or stuck
-        if(new_distance <= self.max_distance):
+        if new_distance <= self.max_distance:
             self.last_max_distance += 1
         else:
             self.max_distance = new_distance
             self.last_max_distance = 0
 
         # We terminate when the agent finishes the lap or when the agent hasn't progressed through the track
-        terminated = new_distance > self.lap_distance + 5 or self.last_max_distance > self.distance_timeout
+        terminated = (
+            new_distance > self.lap_distance + 5
+            or self.last_max_distance > self.distance_timeout
+        )
         reward = self._get_reward(new_distance)
         observation = self._get_obs()
         info = self._get_info()
@@ -140,11 +149,11 @@ class MarioKartDSEnv(gym.Env):
             return self._render_frame()
 
     def close(self):
-        if(self.window_opened):
+        if self.window_opened:
             self.nds.close_window()
 
     def _get_obs(self):
-        top_frame, bottom_frame = self.nds.get_frame()
+        top_frame, _ = self.nds.get_frame()
         return top_frame
 
     def _get_info(self):
@@ -162,20 +171,24 @@ class MarioKartDSEnv(gym.Env):
         merged = np.vstack((top_frame, bottom_frame))
         return merged
 
+
 gym.envs.register(
-    id="MarioKartDS-v0",
-    entry_point=MarioKartDSEnv,
-    max_episode_steps=3000
+    id="MarioKartDS-v0", entry_point=MarioKartDSEnv, max_episode_steps=3000
 )
 
 if __name__ == "__main__":
     # env = MarioKartDSEnv("files/rom.nds", "savestates/time_trail_begining.noo", render_mode="human")
-    env = gym.make("MarioKartDS-v0", rom_path="files/rom.nds", savestates="savestates/time_trail_begining.noo", render_mode="human")
+    env = gym.make(
+        "MarioKartDS-v0",
+        rom_path="files/rom.nds",
+        savestates="savestates/time_trail_begining.noo",
+        render_mode="human",
+    )
     obs, info = env.reset()
 
     done = False
     i = 0
-    while(not done):
+    while not done:
         obs, reward, terminated, truncated, info = env.step(env.action_space.sample())
         i += 1
         done = terminated | truncated
