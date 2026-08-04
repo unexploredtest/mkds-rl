@@ -7,6 +7,8 @@ from stable_baselines3.common import results_plotter
 from stable_baselines3.common.callbacks import CheckpointCallback, EveryNTimesteps
 from stable_baselines3.common.env_util import make_vec_env
 
+import mkds  # noqa: F401 — registers MarioKartDS-v0 in gym's registry
+
 
 def find_state_files(folder_path):
     state_files = []
