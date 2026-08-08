@@ -6,6 +6,8 @@ from stable_baselines3 import PPO
 from stable_baselines3.common import results_plotter
 from stable_baselines3.common.callbacks import CheckpointCallback, EveryNTimesteps
 from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3.common.atari_wrappers import MaxAndSkipEnv, WarpFrame
+from stable_baselines3.common.vec_env import VecFrameStack
 
 import mkds  # noqa: F401 — registers MarioKartDS-v0 in gym's registry
 
@@ -23,6 +25,8 @@ def make_env():
     rom_path = "files/rom.nds"
     savestates = find_state_files("savestates/")
     env = gym.make("MarioKartDS-v0", rom_path=rom_path, savestates=savestates)
+    env = WarpFrame(env)
+    env = MaxAndSkipEnv(env)
     return env
 
 
@@ -36,6 +40,7 @@ if __name__ == "__main__":
     tensorboard_log = "./mariokartds_tensorboard/"
 
     env = make_vec_env(make_env, num_cpu, monitor_dir=log_dir)
+    env = VecFrameStack(env, n_stack=4)
 
     model = PPO("CnnPolicy", env, verbose=1, tensorboard_log=tensorboard_log)
 
