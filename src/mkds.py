@@ -1,6 +1,5 @@
 import enum
 import random
-from typing import ClassVar
 
 import gymnasium as gym
 import numpy as np
@@ -35,7 +34,7 @@ class Actions(enum.Enum):
 
 
 class MarioKartDSEnv(gym.Env):
-    metadata: ClassVar = {
+    metadata = { # noqa: RUF012
         "render_modes": ["human", "rgb_array"],
         "render_fps": 60,
     }
