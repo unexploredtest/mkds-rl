@@ -24,7 +24,8 @@ from gymnasium import spaces
 #     'y': 11
 # }
 
-RAM_ADDRESSES = {"back_distance": 3513708, "front_distance": 3497980}
+# 3513708
+RAM_ADDRESSES_CHAIN = {"back_distance": (1552060, 0), "front_distance": (3497980)}
 
 
 class Actions(enum.Enum):
@@ -34,7 +35,7 @@ class Actions(enum.Enum):
 
 
 class MarioKartDSEnv(gym.Env):
-    metadata = { # noqa: RUF012
+    metadata = {  # noqa: RUF012
         "render_modes": ["human", "rgb_array"],
         "render_fps": 60,
     }
@@ -94,7 +95,9 @@ class MarioKartDSEnv(gym.Env):
             self.nds.render()
 
         self.current_action = Actions.NONE
-        self.distance = self.nds.memory.read_ram_i32(RAM_ADDRESSES["back_distance"])
+        self.distance = self.nds.memory.read_ram_i32(
+            self._read_mem_chain(RAM_ADDRESSES_CHAIN["back_distance"])
+        )
         self.max_distance = self.distance
         self.last_max_distance = 0
 
@@ -118,7 +121,9 @@ class MarioKartDSEnv(gym.Env):
 
         self.nds.tick()
 
-        new_distance = self.nds.memory.read_ram_i32(RAM_ADDRESSES["back_distance"])
+        new_distance = self.nds.memory.read_ram_i32(
+            self._read_mem_chain(RAM_ADDRESSES_CHAIN["back_distance"])
+        )
 
         # Checking whether the agent has progressed through the truck or stuck
         if new_distance <= self.max_distance:
@@ -157,7 +162,9 @@ class MarioKartDSEnv(gym.Env):
 
     def _get_info(self):
         return {
-            "distance": self.nds.memory.read_ram_i32(RAM_ADDRESSES["back_distance"])
+            "distance": self.nds.memory.read_ram_i32(
+                self._read_mem_chain(RAM_ADDRESSES_CHAIN["back_distance"])
+            )
         }
 
     def _get_reward(self, new_distance: int):
@@ -169,6 +176,12 @@ class MarioKartDSEnv(gym.Env):
         top_frame, bottom_frame = self.nds.get_frame()
         merged = np.vstack((top_frame, bottom_frame))
         return merged
+
+    def _read_mem_chain(self, chain: tuple[int]) -> int:
+        cur_adr = chain[0]
+        for offset in chain[1:]:
+            cur_adr = self.nds.memory.read_ram_u32(cur_adr + offset) - 0x02000000
+        return cur_adr
 
 
 gym.envs.register(
