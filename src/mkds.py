@@ -132,9 +132,9 @@ class MarioKartDSEnv(gym.Env):
             self.max_distance = new_distance
             self.last_max_distance = 0
 
-        # We terminate when the agent finishes the lap or when the agent hasn't progressed through the track
+        # We terminate when the agent finishes the race (3 * lap) or when the agent hasn't progressed through the track
         terminated = (
-            new_distance > self.lap_distance + 5
+            new_distance > self.lap_distance * 3 + 5
             or self.last_max_distance > self.distance_timeout
         )
         reward = self._get_reward(new_distance)
@@ -185,7 +185,7 @@ class MarioKartDSEnv(gym.Env):
 
 
 gym.envs.register(
-    id="MarioKartDS-v0", entry_point=MarioKartDSEnv, max_episode_steps=3000
+    id="MarioKartDS-v0", entry_point=MarioKartDSEnv, max_episode_steps=10000
 )
 
 if __name__ == "__main__":
