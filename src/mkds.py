@@ -33,6 +33,9 @@ class Actions(enum.Enum):
     LEFT = 1
     RIGHT = 2
     ITEM = 3
+    DRIFT = 4
+    DRIFT_LEFT = 5
+    DRIFT_RIGHT = 6
 
 
 class MarioKartDSEnv(gym.Env):
@@ -47,7 +50,7 @@ class MarioKartDSEnv(gym.Env):
         self.observation_space = gym.spaces.Box(
             low=0, high=255, shape=(192, 256, 4), dtype=np.uint8
         )
-        self.action_space = spaces.Discrete(4)
+        self.action_space = spaces.Discrete(7)
 
         """
         The following dictionary maps abstract actions from `self.action_space` to
@@ -112,18 +115,37 @@ class MarioKartDSEnv(gym.Env):
             self.nds.button.release_key("x")
             self.nds.button.release_key("left")
             self.nds.button.release_key("right")
+            self.nds.button.release_key("r")
         elif new_action == Actions.LEFT:
             self.nds.button.release_key("x")
-            self.nds.button.press_key("left")
             self.nds.button.release_key("right")
+            self.nds.button.release_key("r")
+            self.nds.button.press_key("left")
         elif new_action == Actions.RIGHT:
             self.nds.button.release_key("x")
             self.nds.button.release_key("left")
+            self.nds.button.release_key("r")
             self.nds.button.press_key("right")
         elif new_action == Actions.ITEM:
             self.nds.button.release_key("left")
             self.nds.button.release_key("right")
+            self.nds.button.release_key("r")
             self.nds.button.press_key("x")
+        elif new_action == Actions.DRIFT:
+            self.nds.button.release_key("left")
+            self.nds.button.release_key("right")
+            self.nds.button.release_key("x")
+            self.nds.button.press_key("r")
+        elif new_action == Actions.DRIFT_LEFT:
+            self.nds.button.release_key("right")
+            self.nds.button.release_key("x")
+            self.nds.button.press_key("left")
+            self.nds.button.press_key("r")
+        elif new_action == Actions.DRIFT_RIGHT:
+            self.nds.button.release_key("left")
+            self.nds.button.release_key("x")
+            self.nds.button.press_key("right")
+            self.nds.button.press_key("r")
         else:
             raise ValueError(f"{action} is not a valid action!")
 
