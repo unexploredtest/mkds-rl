@@ -32,6 +32,7 @@ class Actions(enum.Enum):
     NONE = 0
     LEFT = 1
     RIGHT = 2
+    ITEM = 3
 
 
 class MarioKartDSEnv(gym.Env):
@@ -46,7 +47,7 @@ class MarioKartDSEnv(gym.Env):
         self.observation_space = gym.spaces.Box(
             low=0, high=255, shape=(192, 256, 4), dtype=np.uint8
         )
-        self.action_space = spaces.Discrete(3)
+        self.action_space = spaces.Discrete(4)
 
         """
         The following dictionary maps abstract actions from `self.action_space` to
@@ -108,14 +109,21 @@ class MarioKartDSEnv(gym.Env):
 
         self.nds.button.press_key("a")
         if new_action == Actions.NONE:
+            self.nds.button.release_key("x")
             self.nds.button.release_key("left")
             self.nds.button.release_key("right")
         elif new_action == Actions.LEFT:
+            self.nds.button.release_key("x")
             self.nds.button.press_key("left")
             self.nds.button.release_key("right")
         elif new_action == Actions.RIGHT:
+            self.nds.button.release_key("x")
             self.nds.button.release_key("left")
             self.nds.button.press_key("right")
+        elif new_action == Actions.ITEM:
+            self.nds.button.release_key("left")
+            self.nds.button.release_key("right")
+            self.nds.button.press_key("x")
         else:
             raise ValueError(f"{action} is not a valid action!")
 
