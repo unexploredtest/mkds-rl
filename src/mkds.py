@@ -24,8 +24,11 @@ from gymnasium import spaces
 #     'y': 11
 # }
 
-# 3513708
-RAM_ADDRESSES_CHAIN = {"back_distance": (1552060, 0), "front_distance": (3497980)}
+RAM_ADDRESSES_CHAIN = {
+    "back_distance": (1552060, 0),
+    "front_distance": (3497980),
+    "speed": (1552060, 1020),
+}
 
 
 class Actions(enum.Enum):
@@ -46,7 +49,13 @@ class MarioKartDSEnv(gym.Env):
     lap_distance = 1360
     distance_timeout = 60
 
-    def __init__(self, rom_path: str, savestates: list[str] | str, render_mode=None):
+    def __init__(
+        self,
+        rom_path: str,
+        savestates: list[str] | str,
+        rewards_weight: tuple[int] = (0, 1),
+        render_mode=None,
+    ):
         self.observation_space = gym.spaces.Box(
             low=0, high=255, shape=(192, 256, 4), dtype=np.uint8
         )
@@ -73,6 +82,7 @@ class MarioKartDSEnv(gym.Env):
         self.nds = pynds.PyNDS(rom_path)
 
         self.current_action = Actions.NONE
+        self.rewards_weight = rewards_weight
 
         # Distance related
         self.distance = None
@@ -194,12 +204,36 @@ class MarioKartDSEnv(gym.Env):
         return {
             "distance": self.nds.memory.read_ram_i32(
                 self._read_mem_chain(RAM_ADDRESSES_CHAIN["back_distance"])
-            )
+            ),
+            "speed": self.nds.memory.read_ram_i32(
+                self._read_mem_chain(RAM_ADDRESSES_CHAIN["speed"])
+            ),
         }
 
     def _get_reward(self, new_distance: int):
+        dist_weight, speed_weight = self.rewards_weight
+
+        dist_reward = self._get_dist_reward(new_distance)
+        speed_reward = self._get_speed_reward(new_distance)
+
+        reward = dist_weight * dist_reward + speed_weight * speed_reward
+        return reward
+
+    def _get_dist_reward(self, new_distance: int):
         reward_clipped = np.clip(new_distance - self.distance, -10, 10)
         reward_normalized = reward_clipped / 100
+        return float(reward_normalized)
+
+    def _get_speed_reward(self, new_distance: int):
+        MAX_SPEED = 2**16
+        current_speed = self.nds.memory.read_ram_i32(
+            self._read_mem_chain(RAM_ADDRESSES_CHAIN["speed"])
+        )
+        speed_dir = np.sign(new_distance - self.distance)
+
+        reward = speed_dir * np.abs(current_speed)
+        reward_normalized = reward / (MAX_SPEED * 12)
+
         return float(reward_normalized)
 
     def _render_frame(self):
@@ -210,7 +244,7 @@ class MarioKartDSEnv(gym.Env):
     def _read_mem_chain(self, chain: tuple[int]) -> int:
         cur_adr = chain[0]
         for offset in chain[1:]:
-            cur_adr = self.nds.memory.read_ram_u32(cur_adr + offset) - 0x02000000
+            cur_adr = self.nds.memory.read_ram_u32(cur_adr) - 0x02000000 + offset
         return cur_adr
 
 
