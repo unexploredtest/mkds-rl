@@ -229,10 +229,10 @@ class MarioKartDSEnv(gym.Env):
         current_speed = self.nds.memory.read_ram_i32(
             self._read_mem_chain(RAM_ADDRESSES_CHAIN["speed"])
         )
-        speed_dir = np.sign(new_distance - self.distance)
+        distance = new_distance - self.distance
 
-        reward = speed_dir * np.abs(current_speed)
-        reward_normalized = reward / (MAX_SPEED * 12)
+        reward = distance * np.abs(current_speed)
+        reward_normalized = reward / (MAX_SPEED * 50)
 
         return float(reward_normalized)
 
