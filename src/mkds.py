@@ -86,6 +86,9 @@ class MarioKartDSEnv(gym.Env):
         self.current_action = Actions.NONE
         self.rewards_weight = rewards_weight
 
+        self.current_lap = 1
+        self.total_time = 0
+        self.lap_elapsed = 0
         # Distance related
         self.distance = None
         self.max_distance = None
@@ -111,6 +114,10 @@ class MarioKartDSEnv(gym.Env):
             self.nds.render()
 
         self.current_action = Actions.NONE
+        self.current_lap = 1
+        self.lap_elapsed = self.nds.memory.read_ram_u32(
+            self._read_mem_chain(RAM_ADDRESSES_CHAIN["lap_time_elapsed"])
+        )
         self.distance = self.nds.memory.read_ram_i32(
             self._read_mem_chain(RAM_ADDRESSES_CHAIN["back_distance"])
         )
@@ -174,9 +181,17 @@ class MarioKartDSEnv(gym.Env):
             self.max_distance = new_distance
             self.last_max_distance = 0
 
+        # Update lap time and check if we finished a lap
+        new_lap_elapsed = self.nds.memory.read_ram_u32(
+            self._read_mem_chain(RAM_ADDRESSES_CHAIN["lap_time_elapsed"])
+        )
+
+        if(new_lap_elapsed < self.lap_elapsed):
+            self.current_lap += 1
+
         # We terminate when the agent finishes the race (3 * lap) or when the agent hasn't progressed through the track
         terminated = (
-            new_distance > self.lap_distance * 3 + 5
+            self.current_lap > 3
             or self.last_max_distance > self.distance_timeout
         )
         reward = self._get_reward(new_distance)
@@ -184,6 +199,7 @@ class MarioKartDSEnv(gym.Env):
         info = self._get_info()
 
         self.distance = new_distance
+        self.lap_elapsed = new_lap_elapsed
 
         if self.render_mode == "human":
             self.nds.render()
@@ -215,7 +231,8 @@ class MarioKartDSEnv(gym.Env):
             ),
             "lap_time_elapsed": self.nds.memory.read_ram_u32(
                 self._read_mem_chain(RAM_ADDRESSES_CHAIN["lap_time_elapsed"])
-            )
+            ),
+            "lap": self.current_lap
         }
 
     def _get_reward(self, new_distance: int):
