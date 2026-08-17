@@ -87,6 +87,7 @@ class MarioKartDSEnv(gym.Env):
         self.current_action = Actions.NONE
         self.rewards_weight = rewards_weight
 
+        self.win = 0
         self.current_lap = 1
         self.total_time = 0
         self.lap_elapsed = 0
@@ -115,6 +116,7 @@ class MarioKartDSEnv(gym.Env):
             self.nds.render()
 
         self.current_action = Actions.NONE
+        self.win = 0
         self.current_lap = self.nds.memory.read_ram_u32(
             self._read_mem_chain(RAM_ADDRESSES_CHAIN["lap"])
         )
@@ -190,11 +192,10 @@ class MarioKartDSEnv(gym.Env):
         )
 
         lap_changed = new_lap_elapsed < self.lap_elapsed
+        self.win = self.current_lap == 3 and lap_changed
 
         # We terminate when the agent finishes the race (3 * lap) or when the agent hasn't progressed through the track
-        terminated = (
-            self.current_lap == 3 and lap_changed
-        ) or self.last_max_distance > self.distance_timeout
+        terminated = self.win or self.last_max_distance > self.distance_timeout
         reward = self._get_reward(new_distance)
         observation = self._get_obs()
         info = self._get_info()
@@ -239,6 +240,7 @@ class MarioKartDSEnv(gym.Env):
             "lap": self.nds.memory.read_ram_u32(
                 self._read_mem_chain(RAM_ADDRESSES_CHAIN["lap"])
             ),
+            "win": self.win,
         }
 
     def _get_reward(self, new_distance: int):
