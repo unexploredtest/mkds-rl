@@ -26,10 +26,11 @@ from gymnasium import spaces
 
 RAM_ADDRESSES_CHAIN = {
     "back_distance": (1552060, 0),
-    "front_distance": (3497980),
+    "front_distance": (3497980,),
     "speed": (1552060, 1020),
     "total_time_elapsed": (1529372, 0),
-    "lap_time_elapsed": (1529372, 24)
+    "lap_time_elapsed": (1529372, 24),
+    "lap": (1554556,),
 }
 
 
@@ -114,7 +115,9 @@ class MarioKartDSEnv(gym.Env):
             self.nds.render()
 
         self.current_action = Actions.NONE
-        self.current_lap = 1
+        self.current_lap = self.nds.memory.read_ram_u32(
+            self._read_mem_chain(RAM_ADDRESSES_CHAIN["lap"])
+        )
         self.lap_elapsed = self.nds.memory.read_ram_u32(
             self._read_mem_chain(RAM_ADDRESSES_CHAIN["lap_time_elapsed"])
         )
@@ -186,20 +189,21 @@ class MarioKartDSEnv(gym.Env):
             self._read_mem_chain(RAM_ADDRESSES_CHAIN["lap_time_elapsed"])
         )
 
-        if(new_lap_elapsed < self.lap_elapsed):
-            self.current_lap += 1
+        lap_changed = new_lap_elapsed < self.lap_elapsed
 
         # We terminate when the agent finishes the race (3 * lap) or when the agent hasn't progressed through the track
         terminated = (
-            self.current_lap > 3
-            or self.last_max_distance > self.distance_timeout
-        )
+            self.current_lap == 3 and lap_changed
+        ) or self.last_max_distance > self.distance_timeout
         reward = self._get_reward(new_distance)
         observation = self._get_obs()
         info = self._get_info()
 
         self.distance = new_distance
         self.lap_elapsed = new_lap_elapsed
+        self.current_lap = self.nds.memory.read_ram_u32(
+            self._read_mem_chain(RAM_ADDRESSES_CHAIN["lap"])
+        )
 
         if self.render_mode == "human":
             self.nds.render()
@@ -232,7 +236,9 @@ class MarioKartDSEnv(gym.Env):
             "lap_time_elapsed": self.nds.memory.read_ram_u32(
                 self._read_mem_chain(RAM_ADDRESSES_CHAIN["lap_time_elapsed"])
             ),
-            "lap": self.current_lap
+            "lap": self.nds.memory.read_ram_u32(
+                self._read_mem_chain(RAM_ADDRESSES_CHAIN["lap"])
+            ),
         }
 
     def _get_reward(self, new_distance: int):
