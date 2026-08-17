@@ -28,6 +28,8 @@ RAM_ADDRESSES_CHAIN = {
     "back_distance": (1552060, 0),
     "front_distance": (3497980),
     "speed": (1552060, 1020),
+    "total_time_elapsed": (1529372, 0),
+    "lap_time_elapsed": (1529372, 24)
 }
 
 
@@ -208,6 +210,12 @@ class MarioKartDSEnv(gym.Env):
             "speed": self.nds.memory.read_ram_i32(
                 self._read_mem_chain(RAM_ADDRESSES_CHAIN["speed"])
             ),
+            "total_time_elapsed": self.nds.memory.read_ram_u32(
+                self._read_mem_chain(RAM_ADDRESSES_CHAIN["total_time_elapsed"])
+            ),
+            "lap_time_elapsed": self.nds.memory.read_ram_u32(
+                self._read_mem_chain(RAM_ADDRESSES_CHAIN["lap_time_elapsed"])
+            )
         }
 
     def _get_reward(self, new_distance: int):
