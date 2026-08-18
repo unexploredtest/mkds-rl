@@ -56,7 +56,7 @@ class MarioKartDSEnv(gym.Env):
         self,
         rom_path: str,
         savestates: list[str] | str,
-        rewards_weight: tuple[int] = (0, 1),
+        rewards_weight: tuple[int] = (0, 0, 1),
         render_mode=None,
     ):
         self.observation_space = gym.spaces.Box(
@@ -85,8 +85,11 @@ class MarioKartDSEnv(gym.Env):
         self.nds = pynds.PyNDS(rom_path)
 
         self.current_action = Actions.NONE
+        self.checkpoint_size = 100
         self.rewards_weight = rewards_weight
 
+        self.last_checkpoint = 0
+        self.steps_in_checkpoint = 0
         self.win = 0
         self.current_lap = 1
         self.total_time = 0
@@ -116,6 +119,7 @@ class MarioKartDSEnv(gym.Env):
             self.nds.render()
 
         self.current_action = Actions.NONE
+        self.steps_in_checkpoint = 0
         self.win = 0
         self.current_lap = self.nds.memory.read_ram_u32(
             self._read_mem_chain(RAM_ADDRESSES_CHAIN["lap"])
@@ -127,6 +131,7 @@ class MarioKartDSEnv(gym.Env):
             self._read_mem_chain(RAM_ADDRESSES_CHAIN["back_distance"])
         )
         self.max_distance = self.distance
+        self.last_checkpoint = self.distance
         self.last_max_distance = 0
 
         return observation, info
@@ -206,6 +211,12 @@ class MarioKartDSEnv(gym.Env):
             self._read_mem_chain(RAM_ADDRESSES_CHAIN["lap"])
         )
 
+        if lap_changed or new_distance >= self.last_checkpoint + self.checkpoint_size:
+            self.steps_in_checkpoint = 0
+            self.last_checkpoint = new_distance
+        else:
+            self.steps_in_checkpoint += 1
+
         if self.render_mode == "human":
             self.nds.render()
 
@@ -244,18 +255,32 @@ class MarioKartDSEnv(gym.Env):
         }
 
     def _get_reward(self, new_distance: int):
-        dist_weight, speed_weight = self.rewards_weight
+        dist_weight, speed_weight, checkpoint_weight = self.rewards_weight
 
         dist_reward = self._get_dist_reward(new_distance)
         speed_reward = self._get_speed_reward(new_distance)
+        checkpoint_reward = self._get_checkpoint_reward(new_distance)
 
-        reward = dist_weight * dist_reward + speed_weight * speed_reward
+        reward = (
+            dist_weight * dist_reward
+            + speed_weight * speed_reward
+            + checkpoint_weight * checkpoint_reward
+        )
         return reward
 
     def _get_dist_reward(self, new_distance: int):
         reward_clipped = np.clip(new_distance - self.distance, -10, 10)
         reward_normalized = reward_clipped / 100
         return float(reward_normalized)
+
+    def _get_checkpoint_reward(self, new_distance: int):
+        self.steps_in_checkpoint
+
+        reward = 0
+        if new_distance >= self.last_checkpoint + self.checkpoint_size:
+            reward = 50 / (self.steps_in_checkpoint + 5)
+
+        return reward
 
     def _get_speed_reward(self, new_distance: int):
         MAX_SPEED = 2**16
