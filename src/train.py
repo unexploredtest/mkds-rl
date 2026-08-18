@@ -19,19 +19,38 @@ import mkds  # noqa: F401 — registers MarioKartDS-v0 in gym's registry
 
 
 class WinRateCallback(BaseCallback):
-    """Logs the rolling win rate from ``info["win"]`` over the last N episodes."""
+    """Logs the rolling win rate from ``info["win"]`` over the last N episodes.
+
+    Also logs the rolling average finish time (in seconds) over won episodes,
+    read from ``info["total_time_elapsed"]``. Each raw unit is 1/60 s, so it is
+    divided by 60 before averaging.
+    """
 
     def __init__(self, window: int = 100, verbose: int = 0):
         super().__init__(verbose)
         self.window = window
         self.wins: deque[float] = deque(maxlen=window)
+        self.finish_times: deque[float | None] = deque(maxlen=window)
 
     def _on_step(self) -> bool:
         for done, info in zip(self.locals["dones"], self.locals["infos"]):
             if done:
-                self.wins.append(1.0 if info.get("win") else 0.0)
+                won = info.get("win")
+                self.wins.append(1.0 if won else 0.0)
+                # One entry per race (None for losses) so this deque evicts in
+                # lockstep with self.wins and never covers races older than its
+                # first entry.
+                self.finish_times.append(
+                    info["total_time_elapsed"] / 60 if won else None
+                )
         if self.wins:
             self.logger.record("rollout/win_rate", sum(self.wins) / len(self.wins))
+        won_times = [t for t in self.finish_times if t is not None]
+        if won_times:
+            self.logger.record(
+                "rollout/avg_finish_time",
+                sum(won_times) / len(won_times),
+            )
         return True
 
 
