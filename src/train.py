@@ -31,6 +31,7 @@ class WinRateCallback(BaseCallback):
         self.window = window
         self.wins: deque[float] = deque(maxlen=window)
         self.finish_times: deque[float | None] = deque(maxlen=window)
+        self.best_finish_time: float | None = None
 
     def _on_step(self) -> bool:
         for done, info in zip(self.locals["dones"], self.locals["infos"]):
@@ -40,17 +41,27 @@ class WinRateCallback(BaseCallback):
                 # One entry per race (None for losses) so this deque evicts in
                 # lockstep with self.wins and never covers races older than its
                 # first entry.
-                self.finish_times.append(
-                    info["total_time_elapsed"] / 60 if won else None
-                )
+                finish_time_secs = info["total_time_elapsed"] / 60
+                self.finish_times.append(finish_time_secs if won else None)
+                if won and (
+                    self.best_finish_time is None
+                    or self.best_finish_time > finish_time_secs
+                ):
+                    self.best_finish_time = finish_time_secs
+
         if self.wins:
             self.logger.record("rollout/win_rate", sum(self.wins) / len(self.wins))
+
         won_times = [t for t in self.finish_times if t is not None]
         if won_times:
             self.logger.record(
                 "rollout/avg_finish_time",
                 sum(won_times) / len(won_times),
             )
+
+        if self.best_finish_time is not None:
+            self.logger.record("rollout/best_finish_time", self.best_finish_time)
+
         return True
 
 
