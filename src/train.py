@@ -1,15 +1,38 @@
 import os
+from collections import deque
 
 import gymnasium as gym
 import matplotlib.pyplot as plt
 from stable_baselines3 import PPO
 from stable_baselines3.common import results_plotter
-from stable_baselines3.common.callbacks import CheckpointCallback, EveryNTimesteps
-from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.atari_wrappers import MaxAndSkipEnv, WarpFrame
+from stable_baselines3.common.callbacks import (
+    BaseCallback,
+    CallbackList,
+    CheckpointCallback,
+    EveryNTimesteps,
+)
+from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import VecFrameStack
 
 import mkds  # noqa: F401 — registers MarioKartDS-v0 in gym's registry
+
+
+class WinRateCallback(BaseCallback):
+    """Logs the rolling win rate from ``info["win"]`` over the last N episodes."""
+
+    def __init__(self, window: int = 100, verbose: int = 0):
+        super().__init__(verbose)
+        self.window = window
+        self.wins: deque[float] = deque(maxlen=window)
+
+    def _on_step(self) -> bool:
+        for done, info in zip(self.locals["dones"], self.locals["infos"]):
+            if done:
+                self.wins.append(1.0 if info.get("win") else 0.0)
+        if self.wins:
+            self.logger.record("rollout/win_rate", sum(self.wins) / len(self.wins))
+        return True
 
 
 def find_state_files(folder_path):
@@ -49,7 +72,12 @@ if __name__ == "__main__":
     checkpoint_on_event = CheckpointCallback(save_freq=1, save_path="./models/")
     event_callback = EveryNTimesteps(n_steps=saving_freq, callback=checkpoint_on_event)
 
-    model.learn(total_timesteps=training_steps, callback=event_callback)
+    win_rate_callback = WinRateCallback(window=100)
+
+    model.learn(
+        total_timesteps=training_steps,
+        callback=CallbackList([event_callback, win_rate_callback]),
+    )
 
     env.close()
 
