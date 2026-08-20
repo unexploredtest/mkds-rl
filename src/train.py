@@ -18,18 +18,12 @@ from stable_baselines3.common.vec_env import VecFrameStack
 import mkds  # noqa: F401 — registers MarioKartDS-v0 in gym's registry
 
 
-class WinRateCallback(BaseCallback):
-    """Logs the rolling win rate from ``info["win"]`` over the last N episodes.
-
-    Also logs the rolling average finish time (in seconds) over won episodes,
-    read from ``info["total_time_elapsed"]``. Each raw unit is 1/60 s, so it is
-    divided by 60 before averaging.
-    """
-
+class ExtraLogCallback(BaseCallback):
     def __init__(self, window: int = 100, verbose: int = 0):
         super().__init__(verbose)
         self.window = window
         self.wins: deque[float] = deque(maxlen=window)
+        self.distances: deque[float] = deque(maxlen=window)
         self.finish_times: deque[float | None] = deque(maxlen=window)
         self.best_finish_time: float | None = None
 
@@ -37,7 +31,9 @@ class WinRateCallback(BaseCallback):
         for done, info in zip(self.locals["dones"], self.locals["infos"]):
             if done:
                 won = info.get("win")
+                distance = info.get("distance")
                 self.wins.append(1.0 if won else 0.0)
+                self.distances.append(distance)
                 # One entry per race (None for losses) so this deque evicts in
                 # lockstep with self.wins and never covers races older than its
                 # first entry.
@@ -51,6 +47,9 @@ class WinRateCallback(BaseCallback):
 
         if self.wins:
             self.logger.record("rollout/win_rate", sum(self.wins) / len(self.wins))
+
+        if self.distances:
+            self.logger.record("rollout/avg_distance", sum(self.distances) / len(self.distances))
 
         won_times = [t for t in self.finish_times if t is not None]
         if won_times:
@@ -102,7 +101,7 @@ if __name__ == "__main__":
     checkpoint_on_event = CheckpointCallback(save_freq=1, save_path="./models/")
     event_callback = EveryNTimesteps(n_steps=saving_freq, callback=checkpoint_on_event)
 
-    win_rate_callback = WinRateCallback(window=100)
+    win_rate_callback = ExtraLogCallback(window=100)
 
     model.learn(
         total_timesteps=training_steps,
