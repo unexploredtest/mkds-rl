@@ -296,7 +296,7 @@ class MarioKartDSEnv(gym.Env):
 
     def _render_frame(self):
         top_frame, bottom_frame = self.nds.get_frame()
-        merged = np.vstack((top_frame, bottom_frame))
+        merged = np.vstack((top_frame[:, :, :3], bottom_frame[:, :, :3]))
         return merged
 
     def _read_mem_chain(self, chain: tuple[int]) -> int:
@@ -316,7 +316,13 @@ if __name__ == "__main__":
         "MarioKartDS-v0",
         rom_path="files/rom.nds",
         savestates="savestates/time_trail_begining.noo",
-        render_mode="human",
+        render_mode="rgb_array",
+    )
+
+    env = gym.wrappers.RecordVideo(
+        env,
+        video_folder="./videos",
+        episode_trigger=lambda episode_id: True,  # record every episode
     )
     obs, info = env.reset()
 
@@ -328,3 +334,4 @@ if __name__ == "__main__":
         done = terminated | truncated
         # print(i)
         # print(reward)
+    env.close()
