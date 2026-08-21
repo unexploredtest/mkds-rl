@@ -1,5 +1,4 @@
 import enum
-import random
 
 import gymnasium as gym
 import numpy as np
@@ -103,7 +102,7 @@ class MarioKartDSEnv(gym.Env):
         super().reset(seed=seed)
 
         # load savestate
-        self.nds.load_state_from_file(random.choice(self.savestates))
+        self.nds.load_state_from_file(self.np_random.choice(self.savestates))
 
         # progress
         self.nds.tick()
