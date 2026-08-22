@@ -16,6 +16,9 @@ from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import VecFrameStack
 
 import mkds  # noqa: F401 — registers MarioKartDS-v0 in gym's registry
+from utils import RecordActions, record_episode_policy, record_episode_actions
+
+videos_dir = "./videos/"
 
 
 class ExtraLogCallback(BaseCallback):
@@ -45,11 +48,22 @@ class ExtraLogCallback(BaseCallback):
                 ):
                     self.best_finish_time = finish_time_secs
 
+                    # Record best race
+                    actions = info.get("actions")
+                    record_env = make_env(preprocess=False)
+
+                    record_episode_actions(
+                        record_env, actions, videos_dir + "best_race.mp4"
+                    )
+                    record_env.close()
+
         if self.wins:
             self.logger.record("rollout/win_rate", sum(self.wins) / len(self.wins))
 
         if self.distances:
-            self.logger.record("rollout/avg_distance", sum(self.distances) / len(self.distances))
+            self.logger.record(
+                "rollout/avg_distance", sum(self.distances) / len(self.distances)
+            )
 
         won_times = [t for t in self.finish_times if t is not None]
         if won_times:
@@ -73,12 +87,19 @@ def find_state_files(folder_path):
     return state_files
 
 
-def make_env():
+def make_env(preprocess=True):
     rom_path = "files/rom.nds"
     savestates = find_state_files("savestates/")
-    env = gym.make("MarioKartDS-v0", rom_path=rom_path, savestates=savestates)
-    env = WarpFrame(env)
-    env = MaxAndSkipEnv(env)
+    env = gym.make(
+        "MarioKartDS-v0",
+        rom_path=rom_path,
+        savestates=savestates,
+        render_mode="rgb_array",
+    )
+    env = RecordActions(env)
+    if preprocess:
+        env = WarpFrame(env)
+        env = MaxAndSkipEnv(env)
     return env
 
 
