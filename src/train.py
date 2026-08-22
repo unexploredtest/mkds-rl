@@ -16,7 +16,7 @@ from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import VecFrameStack
 
 import mkds  # noqa: F401 — registers MarioKartDS-v0 in gym's registry
-from utils import RecordActions, record_episode_policy, record_episode_actions
+from utils import RecordActions, record_episode_actions, record_episode_policy
 
 videos_dir = "./videos/"
 
@@ -78,6 +78,17 @@ class ExtraLogCallback(BaseCallback):
         return True
 
 
+class RecordRaceCallback(BaseCallback):
+    def _on_step(self) -> bool:
+        # Fresh env matching the training obs pipeline so the policy can predict
+        record_env = VecFrameStack(make_vec_env(make_env, 1), n_stack=4)
+        record_episode_policy(
+            record_env, self.model, videos_dir + f"race_{self.num_timesteps}.mp4"
+        )
+        record_env.close()
+        return True
+
+
 def find_state_files(folder_path):
     state_files = []
     for root, dirs, files in os.walk(folder_path):
@@ -124,9 +135,12 @@ if __name__ == "__main__":
 
     win_rate_callback = ExtraLogCallback(window=100)
 
+    record_race_callback = RecordRaceCallback()
+    record_race_event = EveryNTimesteps(n_steps=200_000, callback=record_race_callback)
+
     model.learn(
         total_timesteps=training_steps,
-        callback=CallbackList([event_callback, win_rate_callback]),
+        callback=CallbackList([event_callback, win_rate_callback, record_race_event]),
     )
 
     env.close()
