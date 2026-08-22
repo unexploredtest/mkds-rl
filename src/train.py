@@ -130,6 +130,7 @@ if __name__ == "__main__":
 
     # Making checkpoints
     os.makedirs(models_dir, exist_ok=True)
+    os.makedirs(videos_dir, exist_ok=True)
     checkpoint_on_event = CheckpointCallback(save_freq=1, save_path="./models/")
     event_callback = EveryNTimesteps(n_steps=saving_freq, callback=checkpoint_on_event)
 
