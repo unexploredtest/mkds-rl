@@ -56,6 +56,7 @@ class MarioKartDSEnv(gym.Env):
         rom_path: str,
         savestates: list[str] | str,
         rewards_weight: tuple[int] = (0, 0, 1),
+        terminate_on_stall=True,
         render_mode=None,
     ):
         self.observation_space = gym.spaces.Box(
@@ -86,6 +87,7 @@ class MarioKartDSEnv(gym.Env):
         self.current_action = Actions.NONE
         self.checkpoint_size = 100
         self.rewards_weight = rewards_weight
+        self.terminate_on_stall = terminate_on_stall
 
         self.last_checkpoint = 0
         self.steps_in_checkpoint = 0
@@ -199,7 +201,9 @@ class MarioKartDSEnv(gym.Env):
         self.win = self.current_lap == 3 and lap_changed
 
         # We terminate when the agent finishes the race (3 * lap) or when the agent hasn't progressed through the track
-        terminated = self.win or self.last_max_distance > self.distance_timeout
+        terminated = self.win or (
+            self.terminate_on_stall and self.last_max_distance > self.distance_timeout
+        )
         reward = self._get_reward(new_distance)
         observation = self._get_obs()
         info = self._get_info()
@@ -265,6 +269,12 @@ class MarioKartDSEnv(gym.Env):
             + speed_weight * speed_reward
             + checkpoint_weight * checkpoint_reward
         )
+
+        if not self.terminate_on_stall and (
+            self.last_max_distance > self.distance_timeout
+        ):
+            reward -= 1
+
         return reward
 
     def _get_dist_reward(self, new_distance: int):
