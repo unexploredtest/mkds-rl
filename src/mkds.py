@@ -273,7 +273,7 @@ class MarioKartDSEnv(gym.Env):
         if not self.terminate_on_stall and (
             self.last_max_distance > self.distance_timeout
         ):
-            reward -= 1
+            reward -= 0.01
 
         return reward
 
