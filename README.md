@@ -83,3 +83,35 @@ Reaching the 10000-step cap truncates the episode.
 
 Each step returns an info dict with `distance`, `speed`, `total_time_elapsed`,
 `lap_time_elapsed`, `lap`, and `win`.
+
+## Results
+
+One run per reward setup: `distance`, `speed`, `checkpoint` and `all` (average of all)
+
+### Finish times
+
+`rollout/avg_finish_time`: mean race time over the last 100 races that are finished, in
+seconds.
+
+![Average finish time per reward](assets/avg_time.png)
+
+Distance alone outperformed the rest (at least initially).
+
+### Reward curves
+
+Mean episode reward. Scales differ between plots, so these only show stability.
+
+![distance reward](assets/reward_distance.png)
+![speed reward](assets/reward_speed.png)
+![checkpoint reward](assets/reward_checkpoint.png)
+![combined reward](assets/reward_all.png)
+
+### Terminating on stall vs. penalising it
+
+Comparison of penalizing getting stuck with terminating the process: termination outperforms negative rewards.
+
+![terminate on stall vs. per-frame penalty](assets/nostuck_compare.png)
+
+### Caveats
+
+- The models are only trained with for a limited time (about 5M-7M steps) due to computational constraints, so there is still room for improvement.
