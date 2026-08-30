@@ -5,24 +5,7 @@ import numpy as np
 import pynds
 from gymnasium import spaces
 
-# One lap is about 1360 distance
-# A decent run finishes one lap in about 2300 frames
-
-# KEY_MAP = {
-#     'a': 0,
-#     'b': 1,
-#     'select': 2,
-#     'start': 3,
-#     'right': 4,
-#     'left': 5,
-#     'up': 6,
-#     'down': 7,
-#     'r': 8,
-#     'l': 9,
-#     'x': 10,
-#     'y': 11
-# }
-
+# Memory addresses for important values in the game (used for rewards and extra info)
 RAM_ADDRESSES_CHAIN = {
     "back_distance": (1552060, 0),
     "front_distance": (3497980,),
@@ -32,7 +15,7 @@ RAM_ADDRESSES_CHAIN = {
     "lap": (1554556,),
 }
 
-
+# An enum of all possible actions
 class Actions(enum.Enum):
     NONE = 0
     LEFT = 1
@@ -62,40 +45,36 @@ class MarioKartDSEnv(gym.Env):
         self.observation_space = gym.spaces.Box(
             low=0, high=255, shape=(192, 256, 4), dtype=np.uint8
         )
-        self.action_space = spaces.Discrete(7)
-
-        """
-        The following dictionary maps abstract actions from `self.action_space` to
-        the direction we will walk in if that action is taken.
-        i.e. 0 corresponds to "right", 1 to "up" etc.
-        Uses NumPy [row, col] convention where row 0 is at the top.
-        """
+        self.action_space = spaces.Discrete(7) # Discrete actions that correspond to the enum Actions
 
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
         self.window_opened = False
-        self.clock = None
 
+        # Be sure that savestates is a list because a method is used in reset for random selection
+        # that only operates on lists
         if isinstance(savestates, str):
             savestates = [savestates]
 
         assert isinstance(savestates, list)
         self.savestates = savestates
 
+        # Create a PyNDS instance
         self.nds = pynds.PyNDS(rom_path)
 
+        # Environment related values
         self.current_action = Actions.NONE
         self.checkpoint_size = 100
         self.rewards_weight = rewards_weight
         self.terminate_on_stall = terminate_on_stall
 
+        # Game related values
         self.last_checkpoint = 0
         self.steps_in_checkpoint = 0
         self.win = 0
         self.current_lap = 1
         self.total_time = 0
         self.lap_elapsed = 0
-        # Distance related
         self.distance = None
         self.max_distance = None
         self.last_max_distance = 0
@@ -119,6 +98,7 @@ class MarioKartDSEnv(gym.Env):
 
             self.nds.render()
 
+        # Set initial values
         self.current_action = Actions.NONE
         self.steps_in_checkpoint = 0
         self.win = 0
@@ -138,45 +118,46 @@ class MarioKartDSEnv(gym.Env):
         return observation, info
 
     def step(self, action):
+        # Apply action
         new_action = Actions(action)
 
-        self.nds.button.press_key("a")
-        if new_action == Actions.NONE:
+        self.nds.button.press_key("a") # We always move forward
+        if new_action == Actions.NONE: # Nothing
             self.nds.button.release_key("x")
             self.nds.button.release_key("left")
             self.nds.button.release_key("right")
             self.nds.button.release_key("r")
-        elif new_action == Actions.LEFT:
+        elif new_action == Actions.LEFT: # Turn left
             self.nds.button.release_key("x")
             self.nds.button.release_key("right")
             self.nds.button.release_key("r")
             self.nds.button.press_key("left")
-        elif new_action == Actions.RIGHT:
+        elif new_action == Actions.RIGHT: # Turn right
             self.nds.button.release_key("x")
             self.nds.button.release_key("left")
             self.nds.button.release_key("r")
             self.nds.button.press_key("right")
-        elif new_action == Actions.ITEM:
+        elif new_action == Actions.ITEM: # Use item
             self.nds.button.release_key("left")
             self.nds.button.release_key("right")
             self.nds.button.release_key("r")
             self.nds.button.press_key("x")
-        elif new_action == Actions.DRIFT:
+        elif new_action == Actions.DRIFT: # Drift
             self.nds.button.release_key("left")
             self.nds.button.release_key("right")
             self.nds.button.release_key("x")
             self.nds.button.press_key("r")
-        elif new_action == Actions.DRIFT_LEFT:
+        elif new_action == Actions.DRIFT_LEFT: # Drift left
             self.nds.button.release_key("right")
             self.nds.button.release_key("x")
             self.nds.button.press_key("left")
             self.nds.button.press_key("r")
-        elif new_action == Actions.DRIFT_RIGHT:
+        elif new_action == Actions.DRIFT_RIGHT: # Drift right
             self.nds.button.release_key("left")
             self.nds.button.release_key("x")
             self.nds.button.press_key("right")
             self.nds.button.press_key("r")
-        else:
+        else: # Invalid action
             raise ValueError(f"{action} is not a valid action!")
 
         self.nds.tick()
@@ -214,12 +195,14 @@ class MarioKartDSEnv(gym.Env):
             self._read_mem_chain(RAM_ADDRESSES_CHAIN["lap"])
         )
 
+        # Check if we've reached the checkpoint
         if lap_changed or new_distance >= self.last_checkpoint + self.checkpoint_size:
             self.steps_in_checkpoint = 0
             self.last_checkpoint = new_distance
         else:
             self.steps_in_checkpoint += 1
 
+        # Render the game to window if render mode is set to human
         if self.render_mode == "human":
             self.nds.render()
 
@@ -260,16 +243,19 @@ class MarioKartDSEnv(gym.Env):
     def _get_reward(self, new_distance: int):
         dist_weight, speed_weight, checkpoint_weight = self.rewards_weight
 
+        # Get each factor's reward value
         dist_reward = self._get_dist_reward(new_distance)
         speed_reward = self._get_speed_reward(new_distance)
         checkpoint_reward = self._get_checkpoint_reward(new_distance)
 
+        # Take a weighted of the rewards using the weight values
         reward = (
             dist_weight * dist_reward
             + speed_weight * speed_reward
             + checkpoint_weight * checkpoint_reward
         )
 
+        # Penalize the agent if it's stuck (if self.terminate_on_stall is not available)
         if not self.terminate_on_stall and (
             self.last_max_distance > self.distance_timeout
         ):
@@ -278,13 +264,12 @@ class MarioKartDSEnv(gym.Env):
         return reward
 
     def _get_dist_reward(self, new_distance: int):
-        reward_clipped = np.clip(new_distance - self.distance, -10, 10)
-        reward_normalized = reward_clipped / 100
+        reward_clipped = np.clip(new_distance - self.distance, -10, 10) # Clip reward to gaurd againt unexpected change
+        reward_normalized = reward_clipped / 100 # Normalize the reward to a sensible value for training
         return float(reward_normalized)
 
     def _get_checkpoint_reward(self, new_distance: int):
-        self.steps_in_checkpoint
-
+        # Reward on checkpoint based on the amount of steps taken
         reward = 0
         if new_distance >= self.last_checkpoint + self.checkpoint_size:
             reward = 50 / (self.steps_in_checkpoint + 5)
@@ -292,12 +277,14 @@ class MarioKartDSEnv(gym.Env):
         return reward
 
     def _get_speed_reward(self, new_distance: int):
+        # Reward based on the absolute value of speed in the current direction
         MAX_SPEED = 2**16
         current_speed = self.nds.memory.read_ram_i32(
             self._read_mem_chain(RAM_ADDRESSES_CHAIN["speed"])
         )
         distance = new_distance - self.distance
 
+        # Calculate speed per distance (so we don't accidently encourage it to take longer routes just for longer rewards)
         reward = distance * np.abs(current_speed)
         reward_normalized = reward / (MAX_SPEED * 50)
 
